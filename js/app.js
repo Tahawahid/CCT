@@ -1,6 +1,6 @@
 // ===== CONFIGURATION =====
 // TODO: Replace with your Google Apps Script Web App URL
-const APPS_SCRIPT_URL = 'YOUR_APPS_SCRIPT_URL';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyBKaroV9aMpIhyn6ZFstmuduu3hm6TNdzC3yMDmFsVoWSY7dGNfOvQtKvoDtEKZfut7w/exec';
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
 const DEBOUNCE_DELAY = 1000; // 1 second debounce for saves
 

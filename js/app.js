@@ -271,40 +271,40 @@ async function loadFromSheets() {
         updateSyncStatus('syncing', 'Syncing...');
         const lastSync = localStorage.getItem('lastSync');
         const now = Date.now();
-        
+
         // Check if we need to sync (never synced or >5 minutes old)
         if (lastSync && (now - parseInt(lastSync)) < SYNC_INTERVAL && clients.length > 0) {
             updateSyncStatus('success', 'Synced (cached)');
             return;
         }
-        
+
         if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL') {
             throw new Error('Apps Script URL not configured');
         }
-        
+
         const response = await fetch(APPS_SCRIPT_URL);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const sheetData = await response.json();
-        
+
         // Transform sheet data to client format
         clients = sheetData.map(transformSheetDataToClient).filter(c => c !== null);
-        
+
         // Save to localStorage as backup
         localStorage.setItem('clients', JSON.stringify(clients));
         localStorage.setItem('lastSync', now.toString());
         lastSyncTime = now;
-        
+
         updateSyncStatus('success', 'Synced just now');
-        
+
         console.log(`✅ Loaded ${clients.length} clients from Google Sheets`);
         return clients;
     } catch (error) {
         console.error('Failed to load from Google Sheets:', error);
         updateSyncStatus('error', 'Sync failed');
-        
+
         // Fallback to localStorage
         const savedClients = localStorage.getItem('clients');
         if (savedClients) {
@@ -325,55 +325,55 @@ async function saveToSheets(client, immediate = false) {
     if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL') {
         console.warn('Apps Script URL not configured - saving to localStorage only');
         saveToLocalStorage(client);
-        return {success: false, error: 'Apps Script URL not configured'};
+        return { success: false, error: 'Apps Script URL not configured' };
     }
-    
+
     // Debounce saves (unless immediate flag is set)
     if (!immediate && saveTimeout) {
         clearTimeout(saveTimeout);
     }
-    
+
     return new Promise((resolve) => {
         const saveFn = async () => {
             try {
                 updateSyncStatus('syncing', 'Saving...');
-                
+
                 // Transform client data to sheet format
                 const sheetData = transformClientToSheetData(client);
-                
+
                 const response = await fetch(APPS_SCRIPT_URL, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(sheetData)
                 });
-                
+
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     // Update local cache
                     saveToLocalStorage(client);
                     localStorage.setItem('lastSync', Date.now().toString());
                     lastSyncTime = Date.now();
-                    
+
                     updateSyncStatus('success', 'Saved just now');
-                    resolve({success: true});
+                    resolve({ success: true });
                 } else {
                     throw new Error(result.error || 'Save failed');
                 }
             } catch (error) {
                 console.error('Save failed:', error);
                 updateSyncStatus('error', 'Save failed');
-                
+
                 // Save to localStorage as backup
                 saveToLocalStorage(client);
-                resolve({success: false, error: error.message});
+                resolve({ success: false, error: error.message });
             }
         };
-        
+
         if (immediate) {
             saveFn();
         } else {
@@ -395,7 +395,7 @@ function saveToLocalStorage(client) {
 function updateSyncStatus(status, message) {
     const syncStatus = document.getElementById('sync-status');
     const lastSync = document.getElementById('last-sync');
-    
+
     syncStatus.className = status;
     lastSync.textContent = message;
 }
@@ -404,7 +404,7 @@ function updateSyncStatus(status, message) {
 function transformSheetDataToClient(row) {
     try {
         if (!row.ID || !row.Name) return null;
-        
+
         // Parse current task if it exists
         let currentTask = null;
         if (row.CurrentTaskName) {
@@ -422,15 +422,15 @@ function transformSheetDataToClient(row) {
                 defaultUrgency: parseInt(row.Urgency) || 50
             };
         }
-        
+
         // Parse attached clients
-        const attachedClients = row.AttachedClients ? 
+        const attachedClients = row.AttachedClients ?
             row.AttachedClients.split(',').map(id => id.trim()).filter(id => id).map(id => {
                 // Find client by ID if available
                 const attached = clients.find(c => c.id.toString() === id);
-                return attached || {id: id, name: `Client ${id}`, urgency: 0, stage: 'Unknown', location: ''};
+                return attached || { id: id, name: `Client ${id}`, urgency: 0, stage: 'Unknown', location: '' };
             }) : [];
-        
+
         // Calculate stage progress if dates available
         let stageProgress = 0;
         if (row.StageStart && row.StageEnd) {
@@ -441,7 +441,7 @@ function transformSheetDataToClient(row) {
             const elapsed = today - start;
             stageProgress = Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
         }
-        
+
         return {
             id: parseInt(row.ID) || row.ID,
             name: row.Name,
@@ -453,7 +453,8 @@ function transformSheetDataToClient(row) {
             location: row.Location || '',
             status: row.Status || 'active',
             readyToTransfer: row.ReadyToTransfer === true || row.ReadyToTransfer === 'TRUE' || row.ReadyToTransfer === 'true',
-            transferSystems: row.ReadyToTransfer ? ['accounting', 'crm'] : [],
+            transferSystems: row.ReadyToTransfer ? ['accounting', 'crm', 'warranty', 'maintenance'] : [],
+            transferredTo: row.TransferredTo || '',
             currentTask: currentTask,
             attachedClients: attachedClients,
             notes: row.Notes || '',
@@ -477,6 +478,7 @@ function transformClientToSheetData(client) {
         Location: client.location,
         Status: client.status,
         ReadyToTransfer: client.readyToTransfer,
+        TransferredTo: client.transferredTo || '',
         CurrentTaskName: client.currentTask ? client.currentTask.name : '',
         CurrentTaskSubtasks: client.currentTask ? client.currentTask.subtasks.join(', ') : '',
         CurrentTaskDescription: client.currentTask ? client.currentTask.description : '',
@@ -520,20 +522,20 @@ function calculateDaysRemaining(endDate) {
 async function initApp() {
     // Load clients from Google Sheets
     await loadFromSheets();
-    
+
     // Load task templates (using mock for now - can be extended to load from sheets)
     taskTemplates = [...mockTaskTemplates];
-    
+
     filteredClients = [...clients];
-    
+
     renderClientQueue();
     renderCurrentClient();
     updateStats();
     setupEventListeners();
-    
+
     // Set up periodic sync check
     setInterval(checkSync, SYNC_INTERVAL);
-    
+
     console.log("✅ Application initialized with all features:");
     console.log("   • 0-100 urgency scale");
     console.log("   • Task template system");
@@ -558,35 +560,35 @@ async function checkSync() {
 function renderClientQueue() {
     const queueContainer = document.getElementById('client-queue');
     const queueCount = document.getElementById('queue-count');
-    
+
     // Apply filters
     const minUrgency = parseInt(document.getElementById('urgency-filter').value);
     const stageFilter = document.getElementById('stage-filter').value;
     const showTransferred = document.getElementById('show-transferred').checked;
     const showCompleted = document.getElementById('show-completed').checked;
-    
+
     filteredClients = clients.filter(client => {
         // Urgency filter
         if (minUrgency > 0 && client.urgency < minUrgency) return false;
-        
+
         // Stage filter
         if (stageFilter !== 'all' && client.stage.toLowerCase() !== stageFilter) return false;
-        
+
         // Status filters
         if (!showTransferred && client.status === 'transferred') return false;
         if (!showCompleted && client.status === 'completed') return false;
-        
+
         return true;
     });
-    
+
     // Sort by urgency (highest first)
     filteredClients.sort((a, b) => b.urgency - a.urgency);
-    
+
     // Update current index if needed
     if (currentClientIndex >= filteredClients.length) {
         currentClientIndex = Math.max(0, filteredClients.length - 1);
     }
-    
+
     // Render queue
     queueContainer.innerHTML = '';
     filteredClients.forEach((client, index) => {
@@ -594,7 +596,7 @@ function renderClientQueue() {
         const queueItem = document.createElement('div');
         queueItem.className = `queue-item ${isActive ? 'active' : ''} animate-in`;
         queueItem.style.animationDelay = `${index * 0.05}s`;
-        
+
         queueItem.innerHTML = `
             <div class="queue-item-header">
                 <div class="queue-client-name">${client.name}</div>
@@ -611,22 +613,22 @@ function renderClientQueue() {
             </div>
             ${client.readyToTransfer ? '<div class="queue-transfer-tag">Ready to Transfer</div>' : ''}
         `;
-        
+
         queueItem.addEventListener('click', async () => {
             currentClientIndex = index;
             renderCurrentClient();
             renderClientQueue();
-            
+
             // Save selection preference (optional)
             const client = filteredClients[currentClientIndex];
             if (client) {
                 await saveToSheets(client);
             }
         });
-        
+
         queueContainer.appendChild(queueItem);
     });
-    
+
     queueCount.textContent = filteredClients.length;
 }
 
@@ -635,20 +637,20 @@ function renderCurrentClient() {
         document.getElementById('client-name').textContent = "No clients found";
         return;
     }
-    
+
     const client = filteredClients[currentClientIndex];
-    
+
     // Update header
     document.getElementById('client-name').textContent = client.name;
     document.getElementById('client-stage').textContent = client.stage;
     document.getElementById('client-location').textContent = client.location;
     document.getElementById('client-urgency').textContent = client.urgency;
-    
+
     // Update urgency bar
     const urgencyFill = document.getElementById('urgency-fill');
     urgencyFill.style.width = `${client.urgency}%`;
     urgencyFill.style.background = getUrgencyColor(client.urgency);
-    
+
     // Update tags
     const tagsContainer = document.getElementById('client-tags');
     tagsContainer.innerHTML = `
@@ -657,29 +659,29 @@ function renderCurrentClient() {
         ${client.readyToTransfer ? '<span class="tag tag-transfer">Ready to Transfer</span>' : ''}
         ${client.status === 'transferred' ? '<span class="tag tag-completed">Transferred</span>' : ''}
     `;
-    
+
     // Update timeline
     const progress = client.stageProgress || 0;
     document.getElementById('stage-progress-fill').style.width = `${progress}%`;
-    
+
     const daysRemaining = calculateDaysRemaining(client.stageEnd);
-    document.getElementById('timeline-progress').textContent = 
+    document.getElementById('timeline-progress').textContent =
         `Day ${Math.round(progress / 100 * 14)} of 14 • ${progress}% Complete • ${daysRemaining} days left`;
-    
+
     // Update current task
     if (client.currentTask) {
         const task = client.currentTask;
         document.getElementById('task-main').textContent = task.name;
-        document.getElementById('task-category').textContent = 
+        document.getElementById('task-category').textContent =
             `${client.stage} • ${task.category.charAt(0).toUpperCase() + task.category.slice(1)}`;
         document.getElementById('task-description').textContent = task.description;
-        document.getElementById('task-due').textContent = 
+        document.getElementById('task-due').textContent =
             new Date(task.due) <= new Date() ? 'Overdue' : `Due ${formatDate(task.due)}`;
         document.getElementById('task-created').textContent = formatDate(task.created);
         document.getElementById('task-time').textContent = `${task.timeEstimate} minutes`;
         document.getElementById('task-contact').textContent = task.contact;
         document.getElementById('task-id').textContent = task.id;
-        
+
         // Update subtasks
         const subtasksContainer = document.getElementById('task-subtasks');
         subtasksContainer.innerHTML = '';
@@ -690,20 +692,20 @@ function renderCurrentClient() {
             btn.addEventListener('click', async () => {
                 task.currentSubtask = index;
                 client.lastUpdated = new Date().toISOString().split('T')[0];
-                
+
                 // Save subtask progress
                 await saveToSheets(client);
-                
+
                 renderCurrentClient();
             });
             subtasksContainer.appendChild(btn);
         });
     }
-    
+
     // Update attached clients
     const attachedContainer = document.getElementById('attached-list');
     attachedContainer.innerHTML = '';
-    
+
     if (client.attachedClients && client.attachedClients.length > 0) {
         client.attachedClients.forEach(attached => {
             const attachedDiv = document.createElement('div');
@@ -728,14 +730,14 @@ function renderCurrentClient() {
     } else {
         attachedContainer.innerHTML = '<div style="color: #666; font-style: italic; padding: 20px; text-align: center;">No attached clients</div>';
     }
-    
+
     // Update notes
     document.getElementById('client-notes').value = client.notes || '';
-    
+
     // Show/hide panels based on client status
     const transferPanel = document.getElementById('transfer-panel');
     const completePanel = document.getElementById('complete-panel');
-    
+
     if (client.readyToTransfer && client.status !== 'transferred') {
         transferPanel.style.display = 'block';
         completePanel.style.display = 'none';
@@ -759,7 +761,7 @@ function updateStats() {
         return new Date(c.currentTask.due) < new Date();
     }).length;
     const transferReady = clients.filter(c => c.readyToTransfer && c.status !== 'transferred').length;
-    
+
     document.getElementById('total-clients').textContent = activeClients;
     document.getElementById('avg-urgency').textContent = avgUrgency;
     document.getElementById('avg-urgency').className = `stat-value ${getUrgencyClass(avgUrgency)}`;
@@ -776,24 +778,24 @@ function setupEventListeners() {
         renderCurrentClient();
         renderClientQueue();
     });
-    
+
     document.getElementById('btn-next').addEventListener('click', () => {
         currentClientIndex = (currentClientIndex + 1) % filteredClients.length;
         renderCurrentClient();
         renderClientQueue();
     });
-    
+
     // Filter controls
     document.getElementById('urgency-filter').addEventListener('input', (e) => {
-        document.getElementById('urgency-filter-value').textContent = 
+        document.getElementById('urgency-filter-value').textContent =
             e.target.value === '0' ? 'All' : `> ${e.target.value}`;
         renderClientQueue();
     });
-    
+
     document.getElementById('stage-filter').addEventListener('change', renderClientQueue);
     document.getElementById('show-transferred').addEventListener('change', renderClientQueue);
     document.getElementById('show-completed').addEventListener('change', renderClientQueue);
-    
+
     // Task completion
     document.getElementById('btn-complete-task').addEventListener('click', async () => {
         const client = filteredClients[currentClientIndex];
@@ -802,10 +804,10 @@ function setupEventListeners() {
             if (client.currentTask.currentSubtask < client.currentTask.subtasks.length - 1) {
                 client.currentTask.currentSubtask++;
                 client.lastUpdated = new Date().toISOString().split('T')[0];
-                
+
                 // Save subtask progress
                 await saveToSheets(client);
-                
+
                 renderCurrentClient();
             } else {
                 // Task completed - show urgency selector
@@ -813,110 +815,110 @@ function setupEventListeners() {
             }
         }
     });
-    
+
     // Urgency selector for completion
     const urgencySlider = document.getElementById('urgency-selector');
     const urgencyValueDisplay = document.getElementById('urgency-selected-value');
-    
+
     urgencySlider.addEventListener('input', (e) => {
         const value = e.target.value;
         urgencyValueDisplay.textContent = value;
         urgencyValueDisplay.style.color = getUrgencyColor(value);
     });
-    
+
     document.getElementById('btn-confirm-complete').addEventListener('click', async () => {
         const client = filteredClients[currentClientIndex];
         const newUrgency = parseInt(urgencySlider.value);
-        
+
         // Update client urgency
         client.urgency = newUrgency;
-        
+
         // Mark task as completed and generate new task
         client.currentTask = generateNewTask(client);
         client.lastUpdated = new Date().toISOString().split('T')[0];
-        
+
         // Save to Google Sheets
         await saveToSheets(client);
-        
+
         // Move to next client
         currentClientIndex = (currentClientIndex + 1) % filteredClients.length;
-        
+
         // Reset urgency slider
         urgencySlider.value = 50;
         urgencyValueDisplay.textContent = '50';
         urgencyValueDisplay.style.color = getUrgencyColor(50);
-        
+
         // Update UI
         renderCurrentClient();
         renderClientQueue();
         updateStats();
-        
+
         // Show success message
         alert(`Task completed! New urgency set to ${newUrgency}.`);
     });
-    
+
     document.getElementById('btn-cancel-complete').addEventListener('click', () => {
         document.getElementById('complete-panel').classList.remove('pulse');
     });
-    
+
     // Transfer functionality
     document.querySelectorAll('.transfer-option').forEach(option => {
         option.addEventListener('click', async (e) => {
             const system = e.currentTarget.dataset.system;
             const client = filteredClients[currentClientIndex];
-            
+
             if (confirm(`Transfer ${client.name} to ${system} system?`)) {
                 client.status = 'transferred';
                 client.transferredTo = system;
                 client.readyToTransfer = false;
                 client.lastUpdated = new Date().toISOString().split('T')[0];
-                
+
                 // Save to Google Sheets
                 await saveToSheets(client);
-                
+
                 // Move to next client
                 currentClientIndex = (currentClientIndex + 1) % filteredClients.length;
-                
+
                 // Update UI
                 renderCurrentClient();
                 renderClientQueue();
                 updateStats();
-                
+
                 alert(`Client transferred to ${system} system.`);
             }
         });
     });
-    
+
     document.getElementById('btn-transfer').addEventListener('click', async () => {
         const client = filteredClients[currentClientIndex];
         if (client) {
             client.readyToTransfer = true;
             client.lastUpdated = new Date().toISOString().split('T')[0];
-            
+
             // Save to Google Sheets
             await saveToSheets(client);
-            
+
             renderCurrentClient();
             renderClientQueue();
             updateStats();
             alert('Client marked as ready to transfer.');
         }
     });
-    
+
     // Notes saving
     document.getElementById('btn-save-notes').addEventListener('click', async () => {
         const client = filteredClients[currentClientIndex];
         if (client) {
             client.notes = document.getElementById('client-notes').value;
             client.lastUpdated = new Date().toISOString().split('T')[0];
-            
+
             // Save to Google Sheets
             await saveToSheets(client);
-            
+
             alert('Notes saved successfully!');
         }
     });
-    
+
     // Auto-save notes on blur (debounced)
     const notesTextarea = document.getElementById('client-notes');
     let notesTimeout = null;
@@ -925,7 +927,7 @@ function setupEventListeners() {
         if (client) {
             client.notes = notesTextarea.value;
             client.lastUpdated = new Date().toISOString().split('T')[0];
-            
+
             // Debounced save
             if (notesTimeout) clearTimeout(notesTimeout);
             notesTimeout = setTimeout(() => {
@@ -933,28 +935,28 @@ function setupEventListeners() {
             }, DEBOUNCE_DELAY);
         }
     });
-    
+
     // Control center buttons
     document.getElementById('btn-tasks').addEventListener('click', () => {
         document.getElementById('modal-add-task').style.display = 'flex';
     });
-    
+
     document.getElementById('btn-timeline').addEventListener('click', () => {
         document.getElementById('modal-formula').style.display = 'flex';
     });
-    
+
     // Task template form
     const taskForm = document.getElementById('form-add-task');
     const defaultUrgencySlider = document.getElementById('task-default-urgency');
     const defaultUrgencyDisplay = document.getElementById('task-urgency-display');
-    
+
     defaultUrgencySlider.addEventListener('input', (e) => {
         defaultUrgencyDisplay.textContent = e.target.value;
     });
-    
+
     taskForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        
+
         const newTask = {
             id: `template-${taskTemplates.length + 1}`,
             name: document.getElementById('task-name').value,
@@ -965,16 +967,16 @@ function setupEventListeners() {
             defaultUrgency: parseInt(document.getElementById('task-default-urgency').value),
             timeEstimate: parseInt(document.getElementById('task-time-estimate').value)
         };
-        
+
         taskTemplates.push(newTask);
         document.getElementById('modal-add-task').style.display = 'none';
         taskForm.reset();
         defaultUrgencyDisplay.textContent = '50';
-        
+
         alert(`New task template "${newTask.name}" added successfully!`);
         console.log('New task template:', newTask);
     });
-    
+
     // Formula modal
     document.getElementById('btn-copy-formulas').addEventListener('click', () => {
         const formulas = [
@@ -982,21 +984,21 @@ function setupEventListeners() {
             '=MIN(MAX((TODAY() - StageStartDate) / (StageEndDate - StageStartDate), 0), 1)',
             '=MAX(StageEndDate - TODAY(), 0)'
         ];
-        
+
         navigator.clipboard.writeText(formulas.join('\n'))
             .then(() => alert('Formulas copied to clipboard!'))
             .catch(() => alert('Failed to copy formulas.'));
     });
-    
+
     // Modal close buttons
     document.getElementById('btn-cancel-task').addEventListener('click', () => {
         document.getElementById('modal-add-task').style.display = 'none';
     });
-    
+
     document.getElementById('btn-close-formula').addEventListener('click', () => {
         document.getElementById('modal-formula').style.display = 'none';
     });
-    
+
     // Close modals on outside click
     window.addEventListener('click', (e) => {
         if (e.target.classList.contains('modal')) {
@@ -1007,11 +1009,11 @@ function setupEventListeners() {
 
 function generateNewTask(client) {
     // Find appropriate task template for client's stage
-    const suitableTemplates = taskTemplates.filter(template => 
-        template.stageRequired === 'any' || 
+    const suitableTemplates = taskTemplates.filter(template =>
+        template.stageRequired === 'any' ||
         template.stageRequired === client.stage.toLowerCase()
     );
-    
+
     if (suitableTemplates.length === 0) {
         // Default task if no template found
         return {
@@ -1028,10 +1030,10 @@ function generateNewTask(client) {
             defaultUrgency: 30
         };
     }
-    
+
     // Pick a random suitable template
     const template = suitableTemplates[Math.floor(Math.random() * suitableTemplates.length)];
-    
+
     return {
         id: `${client.stage.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`,
         name: template.name,
@@ -1045,3 +1047,9 @@ function generateNewTask(client) {
         contact: "Varies",
         defaultUrgency: template.defaultUrgency
     };
+}
+
+// Initialize the application when the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', () => {
+    initApp();
+});

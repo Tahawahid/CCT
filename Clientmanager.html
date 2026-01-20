@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Construction Client Tracker v2.0</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Progressive Web App Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+</head>
+<body>
+    <!-- Sync Status Indicator -->
+    <div id="sync-status">
+        <div class="sync-indicator"></div>
+        <span>Synced: <span id="last-sync">Just now</span></span>
+    </div>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-top">
+                <div class="logo">
+                    <div class="logo-icon">🏗️</div>
+                    <div class="logo-text">
+                        <h1>Construction Client Tracker</h1>
+                        <div class="subtitle">Dynamic Urgency Scoring • Cross-App Linking • Auto-Timelines</div>
+                    </div>
+                </div>
+                <div class="control-center">
+                    <button class="control-btn active" id="btn-tasks">
+                        <span>📋 Tasks</span>
+                    </button>
+                    <button class="control-btn" id="btn-timeline">
+                        <span>📅 Timeline</span>
+                    </button>
+                    <button class="control-btn" id="btn-reports">
+                        <span>📊 Reports</span>
+                    </button>
+                    <button class="control-btn" id="btn-settings">
+                        <span>⚙️ Settings</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="stats-bar">
+                <div class="stat-card">
+                    <span class="stat-value" id="total-clients">7</span>
+                    <span class="stat-label">Active Clients</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value urgency-high" id="avg-urgency">68</span>
+                    <span class="stat-label">Avg Urgency</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="pending-tasks">14</span>
+                    <span class="stat-label">Pending Tasks</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="overdue">2</span>
+                    <span class="stat-label">Overdue</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="transfer-ready">3</span>
+                    <span class="stat-label">Ready to Transfer</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Layout -->
+        <div class="main-layout">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <!-- Filter Section -->
+                <div class="filter-section">
+                    <div class="filter-header">
+                        <span>🔍 Filter & Sort</span>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label class="filter-label">Urgency Range</label>
+                        <input type="range" class="urgency-slider" id="urgency-filter" min="0" max="100" value="0">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--gray-600); margin-top: 4px;">
+                            <span>0</span>
+                            <span id="urgency-filter-value">All</span>
+                            <span>100</span>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label class="filter-label">Stage</label>
+                        <select class="form-select" id="stage-filter">
+                            <option value="all">All Stages</option>
+                            <option value="pre-con">Pre-Construction</option>
+                            <option value="foundation">Foundation</option>
+                            <option value="framing">Framing</option>
+                            <option value="drywall">Drywall</option>
+                            <option value="finishing">Finishing</option>
+                            <option value="final">Final</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label class="filter-label">Show</label>
+                        <div style="display: flex; gap: 10px;">
+                            <label style="display: flex; align-items: center; gap: 5px; font-size: 0.9rem;">
+                                <input type="checkbox" id="show-transferred" checked> Transferred
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; font-size: 0.9rem;">
+                                <input type="checkbox" id="show-completed" checked> Completed
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Client Queue -->
+                <div class="queue-section">
+                    <div class="queue-header">
+                        <h3>Client Queue</h3>
+                        <span class="queue-count" id="queue-count">7</span>
+                    </div>
+                    
+                    <div class="queue-list" id="client-queue">
+                        <!-- Client queue will be populated by JavaScript -->
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Panel -->
+            <main class="main-panel">
+                <!-- Client Header -->
+                <div class="client-header">
+                    <div class="client-header-top">
+                        <div class="client-info">
+                            <h2 id="client-name">Burnaby Tower Project</h2>
+                            <div class="client-tags" id="client-tags">
+                                <span class="tag tag-stage" id="client-stage">Foundation</span>
+                                <span class="tag tag-location" id="client-location">Burnaby, BC</span>
+                                <span class="tag tag-transfer">Ready to Transfer</span>
+                            </div>
+                            
+                            <!-- Urgency Display -->
+                            <div class="urgency-display">
+                                <div class="urgency-value" id="client-urgency">85</div>
+                                <div class="urgency-bar">
+                                    <div class="urgency-fill" id="urgency-fill" style="width: 85%; background: var(--urgency-90);"></div>
+                                </div>
+                                <div style="font-size: 0.9rem; color: var(--gray-600);">
+                                    Urgency Score
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="client-actions">
+                            <button class="btn btn-secondary" id="btn-prev">
+                                ← Previous
+                            </button>
+                            <button class="btn btn-primary" id="btn-transfer">
+                                📤 Transfer Client
+                            </button>
+                            <button class="btn btn-secondary" id="btn-next">
+                                Next →
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Construction Timeline -->
+                <div class="construction-timeline">
+                    <div class="timeline-header">
+                        <h3>Construction Timeline</h3>
+                        <div class="timeline-progress" id="timeline-progress">Day 4 of 14 • 28% Complete</div>
+                    </div>
+                    
+                    <div class="stage-progress-bar">
+                        <div class="stage-progress-fill" id="stage-progress-fill" style="width: 28%"></div>
+                    </div>
+                    
+                    <div class="stage-indicators">
+                        <div class="stage-indicator completed">
+                            Pre-Con
+                            <span class="stage-date">Jan 1-10</span>
+                        </div>
+                        <div class="stage-indicator active">
+                            Foundation
+                            <span class="stage-date">Jan 11-24</span>
+                        </div>
+                        <div class="stage-indicator">
+                            Framing
+                            <span class="stage-date">Jan 25-Feb 14</span>
+                        </div>
+                        <div class="stage-indicator">
+                            Drywall
+                            <span class="stage-date">Feb 15-28</span>
+                        </div>
+                        <div class="stage-indicator">
+                            Finishing
+                            <span class="stage-date">Mar 1-21</span>
+                        </div>
+                        <div class="stage-indicator">
+                            Final
+                            <span class="stage-date">Mar 22-28</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current Task -->
+                <div class="current-task">
+                    <div class="task-header">
+                        <div class="task-header-left">
+                            <h3>Current Task</h3>
+                            <div class="task-category" id="task-category">Foundation • Inspection</div>
+                        </div>
+                        <div class="task-due-badge" id="task-due">Due Today</div>
+                    </div>
+                    
+                    <div class="task-main" id="task-main">Schedule Foundation Inspection</div>
+                    
+                    <div class="task-description" id="task-description">
+                        Schedule city inspection for foundation work. Ensure site is prepared and all permits are posted. Coordinate with site supervisor John Smith.
+                    </div>
+                    
+                    <div class="task-actions">
+                        <div style="flex: 1;" id="task-subtasks">
+                            <!-- Subtasks will be populated here -->
+                        </div>
+                        <button class="btn btn-success" id="btn-complete-task">
+                            ✅ Complete Task
+                        </button>
+                    </div>
+                    
+                    <div class="task-meta">
+                        <div class="meta-item">
+                            <div class="meta-icon">📅</div>
+                            <div class="meta-content">
+                                <div class="meta-label">Created</div>
+                                <div class="meta-value" id="task-created">Jan 15, 2024</div>
+                            </div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-icon">⏰</div>
+                            <div class="meta-content">
+                                <div class="meta-label">Time Required</div>
+                                <div class="meta-value" id="task-time">45 minutes</div>
+                            </div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-icon">📞</div>
+                            <div class="meta-content">
+                                <div class="meta-label">Contact</div>
+                                <div class="meta-value" id="task-contact">Site Supervisor</div>
+                            </div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-icon">🏷️</div>
+                            <div class="meta-content">
+                                <div class="meta-label">Task ID</div>
+                                <div class="meta-value" id="task-id">FND-003</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attached Clients -->
+                <div class="attached-clients">
+                    <div class="attached-header">
+                        <span>📍 Attached Clients (Visit While Here)</span>
+                    </div>
+                    <div class="attached-list" id="attached-list">
+                        <!-- Attached clients will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Client Notes -->
+                <div class="client-notes">
+                    <div class="notes-header">
+                        <h3>📝 Client Notes & Updates</h3>
+                        <button class="btn btn-secondary" id="btn-save-notes">
+                            💾 Save Notes
+                        </button>
+                    </div>
+                    <textarea class="notes-textarea" id="client-notes" placeholder="Add notes about this client...">Client prefers email communication. Site supervisor: John Smith (555-0123). Budget approved, awaiting permit. Foundation pour scheduled for Jan 22.</textarea>
+                </div>
+
+                <!-- Complete Task Panel -->
+                <div class="complete-panel" id="complete-panel">
+                    <div class="complete-header">
+                        ✅ Task Complete? Set New Urgency (0-100):
+                    </div>
+                    <div class="urgency-selector">
+                        <input type="range" class="urgency-slider-complete" id="urgency-selector" min="0" max="100" value="50">
+                        <div class="urgency-value-display" id="urgency-selected-value">50</div>
+                        <div class="urgency-labels">
+                            <span>Low (0-20)</span>
+                            <span>Medium (21-80)</span>
+                            <span>High (81-100)</span>
+                        </div>
+                        <div class="complete-actions">
+                            <button class="btn btn-secondary" id="btn-cancel-complete">
+                                Cancel
+                            </button>
+                            <button class="btn btn-success" id="btn-confirm-complete">
+                                Confirm & Next Client
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transfer Panel -->
+                <div class="transfer-panel" id="transfer-panel">
+                    <div class="transfer-header">
+                        📤 Transfer Client to Another System
+                    </div>
+                    <div class="transfer-options">
+                        <div class="transfer-option" data-system="accounting">
+                            💰 Accounting System
+                        </div>
+                        <div class="transfer-option" data-system="crm">
+                            👥 CRM System
+                        </div>
+                        <div class="transfer-option" data-system="warranty">
+                            🛡️ Warranty System
+                        </div>
+                        <div class="transfer-option" data-system="maintenance">
+            🛠️ Maintenance System
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sync Info Banner -->
+                <div class="demo-banner">
+                    <strong>SYNC ACTIVE:</strong> Connected to Google Sheets. All changes are automatically saved. 0-100 urgency scale, task management, cross-app linking, formula-driven timelines.
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Add Task Modal -->
+    <div class="modal" id="modal-add-task">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>➕ Add New Task</h3>
+            </div>
+            
+            <form id="form-add-task">
+                <div class="form-group">
+                    <label class="form-label">Task Name</label>
+                    <input type="text" class="form-input" id="task-name" placeholder="e.g., Schedule Inspection" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Category</label>
+                        <select class="form-select" id="task-category-select">
+                            <option value="inspection">Inspection</option>
+                            <option value="material">Material Order</option>
+                            <option value="contact">Client Contact</option>
+                            <option value="document">Documentation</option>
+                            <option value="payment">Payment</option>
+                            <option value="schedule">Scheduling</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Stage Required</label>
+                        <select class="form-select" id="task-stage-required">
+                            <option value="any">Any Stage</option>
+                            <option value="pre-con">Pre-Construction</option>
+                            <option value="foundation">Foundation</option>
+                            <option value="framing">Framing</option>
+                            <option value="drywall">Drywall</option>
+                            <option value="finishing">Finishing</option>
+                            <option value="final">Final</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-textarea" id="task-description-input" placeholder="Describe the task..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Subtasks (comma separated)</label>
+                    <input type="text" class="form-input" id="task-subtasks-input" placeholder="e.g., Call inspector, Email schedule, Confirm date">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Default Urgency (0-100)</label>
+                        <input type="range" class="urgency-slider" min="0" max="100" value="50" id="task-default-urgency">
+                        <div style="text-align: center; font-weight: 600; margin-top: 5px;" id="task-urgency-display">50</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Time Estimate (minutes)</label>
+                        <input type="number" class="form-input" id="task-time-estimate" min="5" max="480" value="30">
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-task">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Save Task Template
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Construction Formula Modal -->
+    <div class="modal" id="modal-formula">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🧮 Construction Timeline Formula</h3>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Current Stage Formula</label>
+                <div style="background: var(--gray-100); padding: 15px; border-radius: var(--radius); font-family: monospace; margin-bottom: 15px;">
+                    =IF(TODAY() >= StageEndDate, "Next Stage", IF(TODAY() >= StageStartDate, "Current Stage", "Previous Stage"))
+                </div>
+                <p style="font-size: 0.9rem; color: var(--gray-600);">
+                    This formula auto-calculates the current construction stage based on dates in your spreadsheet.
+                </p>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Stage Progress Formula</label>
+                <div style="background: var(--gray-100); padding: 15px; border-radius: var(--radius); font-family: monospace; margin-bottom: 15px;">
+                    =MIN(MAX((TODAY() - StageStartDate) / (StageEndDate - StageStartDate), 0), 1)
+                </div>
+                <p style="font-size: 0.9rem; color: var(--gray-600);">
+                    Calculates percentage complete for current stage (0-100%).
+                </p>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Days Remaining Formula</label>
+                <div style="background: var(--gray-100); padding: 15px; border-radius: var(--radius); font-family: monospace; margin-bottom: 15px;">
+                    =MAX(StageEndDate - TODAY(), 0)
+                </div>
+                <p style="font-size: 0.9rem; color: var(--gray-600);">
+                    Shows days remaining in current stage.
+                </p>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="btn-close-formula">
+                    Close
+                </button>
+                <button type="button" class="btn btn-primary" id="btn-copy-formulas">
+                    📋 Copy Formulas
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

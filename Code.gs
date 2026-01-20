@@ -3,7 +3,7 @@
 // - Execute as: Me
 // - Who has access: Anyone
 
-const SHEET_ID = 'YOUR_SHEET_ID'; // Replace with your Google Sheet ID
+const SHEET_ID = '1koZKyU61Y9T4TcCfhJXgTJUHVPXTcWIv-dNyrRy2wLw'; // Replace with your Google Sheet ID
 const MAIN_SHEET_NAME = 'Clients'; // Name of the main active clients sheet
 
 // Map transfer destinations to sheet names

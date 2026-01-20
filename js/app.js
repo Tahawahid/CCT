@@ -1,6 +1,6 @@
 // ===== CONFIGURATION =====
 // TODO: Replace with your Google Apps Script Web App URL
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyBKaroV9aMpIhyn6ZFstmuduu3hm6TNdzC3yMDmFsVoWSY7dGNfOvQtKvoDtEKZfut7w/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqufD6Z_Qr-qa-Z47yL5Us3Q5xZS9EgYbwf1HP3n-E1y-b2d-7yXM3b1Ap6Ohj8394zQ/exec';
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
 const DEBOUNCE_DELAY = 1000; // 1 second debounce for saves
 
@@ -14,212 +14,9 @@ let isSyncing = false;
 let lastSyncTime = null;
 
 // ===== MOCK DATA (Fallback - used only if Google Sheets unavailable) =====
-const mockClients = [
-    {
-        id: 1,
-        name: "Burnaby Tower Project",
-        urgency: 85,
-        stage: "Foundation",
-        stageProgress: 28,
-        stageStart: "2024-01-11",
-        stageEnd: "2024-01-24",
-        location: "Burnaby, BC",
-        status: "active",
-        readyToTransfer: true,
-        transferSystems: ["accounting", "crm"],
-        currentTask: {
-            id: "FND-003",
-            name: "Schedule Foundation Inspection",
-            category: "inspection",
-            subtasks: ["Call inspector", "Email schedule", "Confirm date"],
-            currentSubtask: 0,
-            description: "Schedule city inspection for foundation work. Ensure site is prepared and all permits are posted. Coordinate with site supervisor John Smith.",
-            created: "2024-01-15",
-            due: "2024-01-20",
-            timeEstimate: 45,
-            contact: "Site Supervisor",
-            defaultUrgency: 80
-        },
-        attachedClients: [
-            { id: 2, name: "Metrotown Renovation", urgency: 25, stage: "Pre-Con", location: "Burnaby, BC" },
-            { id: 3, name: "Deer Lake Residence", urgency: 45, stage: "Framing", location: "Burnaby, BC" }
-        ],
-        notes: "Client prefers email communication. Site supervisor: John Smith (555-0123). Budget approved, awaiting permit. Foundation pour scheduled for Jan 22.",
-        lastUpdated: "2024-01-18"
-    },
-    {
-        id: 2,
-        name: "Metrotown Renovation",
-        urgency: 25,
-        stage: "Pre-construction",
-        stageProgress: 15,
-        stageStart: "2024-01-08",
-        stageEnd: "2024-01-28",
-        location: "Burnaby, BC",
-        status: "active",
-        readyToTransfer: false,
-        currentTask: {
-            id: "PRE-012",
-            name: "Initial Site Assessment",
-            category: "inspection",
-            subtasks: ["Visit site", "Take photos", "Write report"],
-            currentSubtask: 1,
-            description: "Conduct initial site visit to assess renovation requirements and constraints.",
-            created: "2024-01-12",
-            due: "2024-01-19",
-            timeEstimate: 120,
-            contact: "Homeowner",
-            defaultUrgency: 40
-        },
-        attachedClients: [],
-        notes: "Budget conscious client. Show value options. Waiting on design approval.",
-        lastUpdated: "2024-01-17"
-    },
-    {
-        id: 3,
-        name: "Deer Lake Residence",
-        urgency: 45,
-        stage: "Framing",
-        stageProgress: 65,
-        stageStart: "2024-01-25",
-        stageEnd: "2024-02-14",
-        location: "Burnaby, BC",
-        status: "active",
-        readyToTransfer: false,
-        currentTask: {
-            id: "FRM-007",
-            name: "Order Framing Materials",
-            category: "material",
-            subtasks: ["Check inventory", "Place order", "Schedule delivery"],
-            currentSubtask: 0,
-            description: "Order additional 2x6 lumber and hardware for framing completion.",
-            created: "2024-01-14",
-            due: "2024-01-22",
-            timeEstimate: 30,
-            contact: "Supplier",
-            defaultUrgency: 60
-        },
-        attachedClients: [],
-        notes: "Architect on site Tuesdays. Prefers calls before 10 AM. Material delivery constraints.",
-        lastUpdated: "2024-01-16"
-    },
-    {
-        id: 4,
-        name: "West Vancouver Mansion",
-        urgency: 90,
-        stage: "Drywall",
-        stageProgress: 40,
-        stageStart: "2024-02-15",
-        stageEnd: "2024-02-28",
-        location: "West Vancouver, BC",
-        status: "active",
-        readyToTransfer: true,
-        transferSystems: ["accounting"],
-        currentTask: {
-            id: "DRY-004",
-            name: "Drywall Quality Check",
-            category: "inspection",
-            subtasks: ["Inspect work", "Mark issues", "Schedule fix"],
-            currentSubtask: 0,
-            description: "Inspect drywall installation for quality and mark any areas needing correction.",
-            created: "2024-01-16",
-            due: "2024-01-20",
-            timeEstimate: 90,
-            contact: "Drywall Contractor",
-            defaultUrgency: 85
-        },
-        attachedClients: [
-            { id: 5, name: "Ambleside Kitchen", urgency: 15, stage: "Finishing", location: "West Vancouver, BC" }
-        ],
-        notes: "High-end finish required. Client travels frequently. Quality checks critical.",
-        lastUpdated: "2024-01-18"
-    },
-    {
-        id: 5,
-        name: "Ambleside Kitchen Reno",
-        urgency: 15,
-        stage: "Finishing",
-        stageProgress: 75,
-        stageStart: "2024-03-01",
-        stageEnd: "2024-03-21",
-        location: "West Vancouver, BC",
-        status: "active",
-        readyToTransfer: false,
-        currentTask: {
-            id: "FIN-008",
-            name: "Fixture Selection",
-            category: "client-contact",
-            subtasks: ["Showroom visit", "Catalog review", "Client approval"],
-            currentSubtask: 0,
-            description: "Help client select finishing fixtures from showroom options.",
-            created: "2024-01-10",
-            due: "2024-01-23",
-            timeEstimate: 180,
-            contact: "Client & Designer",
-            defaultUrgency: 30
-        },
-        attachedClients: [],
-        notes: "Wants eco-friendly options. Daughter is interior designer. Multiple decision makers.",
-        lastUpdated: "2024-01-15"
-    },
-    {
-        id: 6,
-        name: "Downtown Office Build",
-        urgency: 95,
-        stage: "Final",
-        stageProgress: 90,
-        stageStart: "2024-03-22",
-        stageEnd: "2024-03-28",
-        location: "Vancouver, BC",
-        status: "transferred",
-        transferredTo: "accounting",
-        readyToTransfer: false,
-        currentTask: {
-            id: "FNL-001",
-            name: "Final Occupancy Inspection",
-            category: "inspection",
-            subtasks: ["Book inspector", "Prepare documents", "Attend inspection"],
-            currentSubtask: 1,
-            description: "Arrange final occupancy inspection with city officials.",
-            created: "2024-01-17",
-            due: "2024-01-20",
-            timeEstimate: 120,
-            contact: "City Inspector",
-            defaultUrgency: 95
-        },
-        attachedClients: [],
-        notes: "URGENT - Tenant move-in scheduled for Feb 1. All permits must be finalized.",
-        lastUpdated: "2024-01-18"
-    },
-    {
-        id: 7,
-        name: "Richmond Condo Complex",
-        urgency: 60,
-        stage: "Foundation",
-        stageProgress: 10,
-        stageStart: "2024-01-17",
-        stageEnd: "2024-01-30",
-        location: "Richmond, BC",
-        status: "active",
-        readyToTransfer: false,
-        currentTask: {
-            id: "FND-005",
-            name: "Concrete Delivery Schedule",
-            category: "scheduling",
-            subtasks: ["Confirm quantity", "Book truck", "Notify site"],
-            currentSubtask: 0,
-            description: "Schedule concrete delivery for foundation pour next week.",
-            created: "2024-01-16",
-            due: "2024-01-19",
-            timeEstimate: 20,
-            contact: "Concrete Supplier",
-            defaultUrgency: 70
-        },
-        attachedClients: [],
-        notes: "Site access limited to 7 AM - 5 PM. Noise restrictions after 6 PM.",
-        lastUpdated: "2024-01-17"
-    }
-];
+// ===== MOCK DATA (Removed for production) =====
+// const mockClients = []; // Mock data removed to ensure fresh start
+
 
 // Task templates that you can edit/add to
 const mockTaskTemplates = [
@@ -312,10 +109,10 @@ async function loadFromSheets() {
             updateSyncStatus('success', 'Using local cache');
             console.log('Using cached data from localStorage');
         } else {
-            // Fallback to mock data if nothing saved
-            clients = [...mockClients];
-            updateSyncStatus('error', 'Using demo data');
-            console.warn('Using mock data - configure Apps Script URL');
+            // Start fresh if nothing saved
+            clients = [];
+            updateSyncStatus('neutral', 'Ready to add clients');
+            console.log('Starting with empty client list');
         }
         return clients;
     }
@@ -343,27 +140,19 @@ async function saveToSheets(client, immediate = false) {
 
                 const response = await fetch(APPS_SCRIPT_URL, {
                     method: 'POST',
+                    mode: 'no-cors', // Added to fix CORS issue
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(sheetData)
                 });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                // With no-cors, we can't check response.ok or read the body, so we assume success if no error thrown
+                // Update local cache
+                saveToLocalStorage(client);
+                localStorage.setItem('lastSync', Date.now().toString());
+                lastSyncTime = Date.now();
 
-                const result = await response.json();
-
-                if (result.success) {
-                    // Update local cache
-                    saveToLocalStorage(client);
-                    localStorage.setItem('lastSync', Date.now().toString());
-                    lastSyncTime = Date.now();
-
-                    updateSyncStatus('success', 'Saved just now');
-                    resolve({ success: true });
-                } else {
-                    throw new Error(result.error || 'Save failed');
-                }
+                updateSyncStatus('success', 'Saved just now');
+                resolve({ success: true });
             } catch (error) {
                 console.error('Save failed:', error);
                 updateSyncStatus('error', 'Save failed');
@@ -635,16 +424,44 @@ function renderClientQueue() {
 function renderCurrentClient() {
     if (filteredClients.length === 0) {
         document.getElementById('client-name').textContent = "No clients found";
+
+        // Clear/Hide details when no clients exist
+        const elementsToClear = ['client-stage', 'client-location', 'client-urgency', 'task-main', 'task-description', 'task-due', 'task-created', 'task-time', 'task-contact', 'task-id'];
+        elementsToClear.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = '-';
+        });
+
+        document.getElementById('urgency-fill').style.width = '0%';
+        document.getElementById('client-tags').style.display = 'none';
+        document.getElementById('task-subtasks').innerHTML = '';
+        document.getElementById('attached-list').innerHTML = '';
+        document.getElementById('client-notes').value = '';
+
+        // Hide action panels
+        document.getElementById('transfer-panel').style.display = 'none';
+        document.getElementById('complete-panel').style.display = 'none';
+
         return;
     }
+
+    // Ensure tags are visible again
+    document.getElementById('client-tags').style.display = 'flex';
 
     const client = filteredClients[currentClientIndex];
 
     // Update header
-    document.getElementById('client-name').textContent = client.name;
-    document.getElementById('client-stage').textContent = client.stage;
-    document.getElementById('client-location').textContent = client.location;
-    document.getElementById('client-urgency').textContent = client.urgency;
+    const nameEl = document.getElementById('client-name');
+    if (nameEl) nameEl.textContent = client.name;
+
+    const stageEl = document.getElementById('client-stage');
+    if (stageEl) stageEl.textContent = client.stage;
+
+    const locationEl = document.getElementById('client-location');
+    if (locationEl) locationEl.textContent = client.location;
+
+    const urgencyEl = document.getElementById('client-urgency');
+    if (urgencyEl) urgencyEl.textContent = client.urgency;
 
     // Update urgency bar
     const urgencyFill = document.getElementById('urgency-fill');

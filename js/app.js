@@ -1,6 +1,6 @@
 // ===== CONFIGURATION =====
 // TODO: Replace with your Google Apps Script Web App URL
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqufD6Z_Qr-qa-Z47yL5Us3Q5xZS9EgYbwf1HP3n-E1y-b2d-7yXM3b1Ap6Ohj8394zQ/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzXhkDeZSwfHg5pZWZsc0KwsIyNicnSiaFlcsESvR6n3bLsExDch25aX9ooqx5Z2cxL4Q/exec';
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
 const DEBOUNCE_DELAY = 1000; // 1 second debounce for saves
 
@@ -12,6 +12,8 @@ let filteredClients = [];
 let saveTimeout = null;
 let isSyncing = false;
 let lastSyncTime = null;
+let undoStack = []; // History stack for undo functionality
+const MAX_UNDO_HISTORY = 10;
 
 // ===== MOCK DATA (Fallback - used only if Google Sheets unavailable) =====
 // ===== MOCK DATA (Removed for production) =====
@@ -234,8 +236,10 @@ function transformSheetDataToClient(row) {
         return {
             id: parseInt(row.ID) || row.ID,
             name: row.Name,
+            phone: row.Phone || '',
             urgency: parseInt(row.Urgency) || 50,
             stage: row.Stage || 'Pre-Con',
+            pipelineStage: row.PipelineStage || 'Lead', // Default to 'Lead' if new
             stageProgress: stageProgress,
             stageStart: row.StageStart || new Date().toISOString().split('T')[0],
             stageEnd: row.StageEnd || new Date().toISOString().split('T')[0],
@@ -246,6 +250,7 @@ function transformSheetDataToClient(row) {
             transferredTo: row.TransferredTo || '',
             currentTask: currentTask,
             attachedClients: attachedClients,
+            customFields: row.CustomFields ? JSON.parse(row.CustomFields) : {},
             notes: row.Notes || '',
             lastUpdated: row.LastUpdated || new Date().toISOString().split('T')[0]
         };
@@ -260,8 +265,10 @@ function transformClientToSheetData(client) {
     return {
         ID: client.id,
         Name: client.name,
+        Phone: client.phone || '',
         Urgency: client.urgency,
         Stage: client.stage,
+        PipelineStage: client.pipelineStage || 'Construction',
         StageStart: client.stageStart,
         StageEnd: client.stageEnd,
         Location: client.location,
@@ -277,6 +284,7 @@ function transformClientToSheetData(client) {
         CurrentTaskContact: client.currentTask ? client.currentTask.contact : '',
         CurrentTaskCategory: client.currentTask ? client.currentTask.category : '',
         AttachedClients: client.attachedClients ? client.attachedClients.map(ac => ac.id).join(', ') : '',
+        CustomFields: JSON.stringify(client.customFields || {}),
         Notes: client.notes || '',
         LastUpdated: new Date().toISOString()
     };
@@ -346,6 +354,51 @@ async function checkSync() {
     }
 }
 
+// ===== UNDO FUNCTIONALITY =====
+function saveStateForUndo(client) {
+    // Deep copy client to preserve state
+    const clientState = JSON.parse(JSON.stringify(client));
+    undoStack.push(clientState);
+    if (undoStack.length > MAX_UNDO_HISTORY) {
+        undoStack.shift(); // Remove oldest history
+    }
+    updateUndoButton();
+}
+
+async function undoLastAction() {
+    if (undoStack.length === 0) return;
+
+    const previousState = undoStack.pop();
+
+    // Find current index of this client
+    const index = clients.findIndex(c => c.id === previousState.id);
+    if (index !== -1) {
+        clients[index] = previousState;
+
+        // Also update filtered clients if applicable
+        const filteredIndex = filteredClients.findIndex(c => c.id === previousState.id);
+        if (filteredIndex !== -1) {
+            filteredClients[filteredIndex] = previousState;
+        }
+
+        await saveToSheets(previousState, true); // Save the restored state immediately
+
+        renderCurrentClient();
+        renderClientQueue();
+        updateStats();
+        updateUndoButton();
+        alert('Action undone!');
+    }
+}
+
+function updateUndoButton() {
+    const btn = document.getElementById('btn-undo');
+    if (btn) {
+        btn.style.display = undoStack.length > 0 ? 'flex' : 'none';
+        btn.innerHTML = `<span>↩️ Undo (${undoStack.length})</span>`;
+    }
+}
+
 function renderClientQueue() {
     const queueContainer = document.getElementById('client-queue');
     const queueCount = document.getElementById('queue-count');
@@ -355,8 +408,18 @@ function renderClientQueue() {
     const stageFilter = document.getElementById('stage-filter').value;
     const showTransferred = document.getElementById('show-transferred').checked;
     const showCompleted = document.getElementById('show-completed').checked;
+    const searchQuery = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase() : '';
 
     filteredClients = clients.filter(client => {
+        // Search filter
+        if (searchQuery) {
+            const searchMatch =
+                client.name.toLowerCase().includes(searchQuery) ||
+                (client.phone && client.phone.includes(searchQuery)) ||
+                client.location.toLowerCase().includes(searchQuery);
+            if (!searchMatch) return false;
+        }
+
         // Urgency filter
         if (minUrgency > 0 && client.urgency < minUrgency) return false;
 
@@ -460,6 +523,16 @@ function renderCurrentClient() {
     const locationEl = document.getElementById('client-location');
     if (locationEl) locationEl.textContent = client.location;
 
+    const phoneEl = document.getElementById('client-phone');
+    if (phoneEl) {
+        if (client.phone) {
+            phoneEl.textContent = `📞 ${client.phone}`;
+            phoneEl.style.display = 'inline-block';
+        } else {
+            phoneEl.style.display = 'none';
+        }
+    }
+
     const urgencyEl = document.getElementById('client-urgency');
     if (urgencyEl) urgencyEl.textContent = client.urgency;
 
@@ -468,11 +541,48 @@ function renderCurrentClient() {
     urgencyFill.style.width = `${client.urgency}%`;
     urgencyFill.style.background = getUrgencyColor(client.urgency);
 
+    // Render Custom Fields
+    const customFieldsContainer = document.getElementById('custom-fields-container');
+    if (customFieldsContainer) {
+        customFieldsContainer.innerHTML = '';
+        if (client.customFields && Object.keys(client.customFields).length > 0) {
+            Object.entries(client.customFields).forEach(([key, value]) => {
+                const fieldDiv = document.createElement('div');
+                fieldDiv.style.background = 'var(--gray-50)';
+                fieldDiv.style.padding = '8px';
+                fieldDiv.style.borderRadius = '6px';
+                fieldDiv.style.border = '1px solid var(--gray-200)';
+                fieldDiv.style.cursor = 'pointer';
+                fieldDiv.innerHTML = `
+                    <div style="font-size: 0.75rem; color: var(--gray-600); font-weight: 600;">${key}</div>
+                    <div style="font-size: 0.95rem;">${value}</div>
+                `;
+
+                // Allow editing on click
+                fieldDiv.addEventListener('click', async () => {
+                    const newValue = prompt(`Update ${key}:`, value);
+                    if (newValue !== null && newValue !== value) {
+                        saveStateForUndo(client);
+                        client.customFields[key] = newValue;
+                        client.lastUpdated = new Date().toISOString().split('T')[0];
+                        await saveToSheets(client);
+                        renderCurrentClient();
+                    }
+                });
+
+                customFieldsContainer.appendChild(fieldDiv);
+            });
+        } else {
+            customFieldsContainer.innerHTML = '<div style="grid-column: 1 / -1; color: var(--gray-500); font-style: italic; font-size: 0.9rem;">No custom fields added yet.</div>';
+        }
+    }
+
     // Update tags
     const tagsContainer = document.getElementById('client-tags');
     tagsContainer.innerHTML = `
         <span class="tag tag-stage">${client.stage}</span>
         <span class="tag tag-location">${client.location}</span>
+        ${client.phone ? `<span class="tag tag-phone" style="background: var(--gray-100); color: var(--gray-700); border: 1px solid var(--gray-300);">📞 ${client.phone}</span>` : ''}
         ${client.readyToTransfer ? '<span class="tag tag-transfer">Ready to Transfer</span>' : ''}
         ${client.status === 'transferred' ? '<span class="tag tag-completed">Transferred</span>' : ''}
     `;
@@ -603,6 +713,13 @@ function setupEventListeners() {
     });
 
     // Filter controls
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            renderClientQueue();
+        });
+    }
+
     document.getElementById('urgency-filter').addEventListener('input', (e) => {
         document.getElementById('urgency-filter-value').textContent =
             e.target.value === '0' ? 'All' : `> ${e.target.value}`;
@@ -612,6 +729,89 @@ function setupEventListeners() {
     document.getElementById('stage-filter').addEventListener('change', renderClientQueue);
     document.getElementById('show-transferred').addEventListener('change', renderClientQueue);
     document.getElementById('show-completed').addEventListener('change', renderClientQueue);
+
+    // Undo
+    if (document.getElementById('btn-undo')) {
+        document.getElementById('btn-undo').addEventListener('click', undoLastAction);
+    }
+
+    // Attach Client
+    if (document.getElementById('btn-attach-client')) {
+        document.getElementById('btn-attach-client').addEventListener('click', async () => {
+            const client = filteredClients[currentClientIndex];
+            const attachedID = prompt("Enter the ID of the client to attach:");
+            if (attachedID && client) {
+                // Verify client exists
+                const targetClient = clients.find(c => c.id.toString() === attachedID.toString());
+                if (targetClient) {
+                    if (targetClient.id === client.id) {
+                        alert("Cannot attach client to themselves.");
+                        return;
+                    }
+
+                    saveStateForUndo(client); // Save undo state
+
+                    if (!client.attachedClients.some(ac => ac.id === targetClient.id)) {
+                        client.attachedClients.push({
+                            id: targetClient.id,
+                            name: targetClient.name,
+                            urgency: targetClient.urgency,
+                            stage: targetClient.stage,
+                            location: targetClient.location
+                        });
+                        client.lastUpdated = new Date().toISOString().split('T')[0];
+                        await saveToSheets(client);
+                        renderCurrentClient();
+                        alert(`Attached ${targetClient.name}`);
+                    } else {
+                        alert("Client already attached.");
+                    }
+                } else {
+                    alert("Client ID not found.");
+                }
+            }
+        });
+    }
+
+    // Custom Fields
+    if (document.getElementById('btn-add-field')) {
+        document.getElementById('btn-add-field').addEventListener('click', async () => {
+            const client = filteredClients[currentClientIndex];
+            const fieldName = prompt("Enter field name (e.g., 'Gate Code'):");
+            if (fieldName && client) {
+                const fieldValue = prompt(`Enter value for ${fieldName}:`);
+                if (fieldValue) {
+                    saveStateForUndo(client); // Save undo state
+
+                    if (!client.customFields) client.customFields = {};
+                    client.customFields[fieldName] = fieldValue;
+                    client.lastUpdated = new Date().toISOString().split('T')[0];
+                    await saveToSheets(client);
+                    renderCurrentClient();
+                }
+            }
+        });
+    }
+
+    // Sales Pipeline View Toggle
+    if (document.getElementById('btn-pipeline-view')) {
+        document.getElementById('btn-pipeline-view').addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            btn.classList.toggle('active');
+            const isPipelineMode = btn.classList.contains('active');
+
+            // Logic to filter queue for pipeline can be added here or in renderClientQueue
+            // For now, we'll just alert as a placeholder or filter queue
+            if (isPipelineMode) {
+                // Filter for pipeline stages
+                document.getElementById('stage-filter').value = 'all';
+                // In a real implementation we would set a pipeline filter variable
+                alert("Switched to Sales Pipeline View");
+            } else {
+                alert("Switched to Task View");
+            }
+        });
+    }
 
     // Task completion
     document.getElementById('btn-complete-task').addEventListener('click', async () => {

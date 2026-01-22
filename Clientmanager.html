@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#3b82f6">
 </head>
+
 <body>
     <!-- Sync Status Indicator -->
     <div id="sync-status">
@@ -27,6 +29,10 @@
                     </div>
                 </div>
                 <div class="control-center">
+                    <button class="control-btn" id="btn-pipeline-view"
+                        style="border-right: 1px solid rgba(255,255,255,0.2);">
+                        <span>💼 Sales Pipeline</span>
+                    </button>
                     <button class="control-btn active" id="btn-tasks">
                         <span>📋 Tasks</span>
                     </button>
@@ -39,9 +45,13 @@
                     <button class="control-btn" id="btn-settings">
                         <span>⚙️ Settings</span>
                     </button>
+                    <button class="control-btn" id="btn-undo"
+                        style="display: none; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);">
+                        <span>↩️ Undo</span>
+                    </button>
                 </div>
             </div>
-            
+
             <div class="stats-bar">
                 <div class="stat-card">
                     <span class="stat-value" id="total-clients">7</span>
@@ -73,19 +83,27 @@
                 <!-- Filter Section -->
                 <div class="filter-section">
                     <div class="filter-header">
-                        <span>🔍 Filter & Sort</span>
+                        <span>🔍 Filter & Search</span>
                     </div>
-                    
+
+                    <div class="filter-group">
+                        <label class="filter-label">Search</label>
+                        <input type="text" class="form-input" id="search-input"
+                            placeholder="Name, Phone, or Location..."
+                            style="width: 100%; padding: 8px; border: 1px solid var(--gray-300); border-radius: 6px;">
+                    </div>
+
                     <div class="filter-group">
                         <label class="filter-label">Urgency Range</label>
                         <input type="range" class="urgency-slider" id="urgency-filter" min="0" max="100" value="0">
-                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--gray-600); margin-top: 4px;">
+                        <div
+                            style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--gray-600); margin-top: 4px;">
                             <span>0</span>
                             <span id="urgency-filter-value">All</span>
                             <span>100</span>
                         </div>
                     </div>
-                    
+
                     <div class="filter-group">
                         <label class="filter-label">Stage</label>
                         <select class="form-select" id="stage-filter">
@@ -98,7 +116,7 @@
                             <option value="final">Final</option>
                         </select>
                     </div>
-                    
+
                     <div class="filter-group">
                         <label class="filter-label">Show</label>
                         <div style="display: flex; gap: 10px;">
@@ -118,7 +136,7 @@
                         <h3>Client Queue</h3>
                         <span class="queue-count" id="queue-count">7</span>
                     </div>
-                    
+
                     <div class="queue-list" id="client-queue">
                         <!-- Client queue will be populated by JavaScript -->
                     </div>
@@ -135,21 +153,25 @@
                             <div class="client-tags" id="client-tags">
                                 <span class="tag tag-stage" id="client-stage">Foundation</span>
                                 <span class="tag tag-location" id="client-location">Burnaby, BC</span>
+                                <span class="tag tag-phone" id="client-phone"
+                                    style="background: var(--gray-100); color: var(--gray-700); border: 1px solid var(--gray-300);">📞
+                                    555-0123</span>
                                 <span class="tag tag-transfer">Ready to Transfer</span>
                             </div>
-                            
+
                             <!-- Urgency Display -->
                             <div class="urgency-display">
                                 <div class="urgency-value" id="client-urgency">85</div>
                                 <div class="urgency-bar">
-                                    <div class="urgency-fill" id="urgency-fill" style="width: 85%; background: var(--urgency-90);"></div>
+                                    <div class="urgency-fill" id="urgency-fill"
+                                        style="width: 85%; background: var(--urgency-90);"></div>
                                 </div>
                                 <div style="font-size: 0.9rem; color: var(--gray-600);">
                                     Urgency Score
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="client-actions">
                             <button class="btn btn-secondary" id="btn-prev">
                                 ← Previous
@@ -170,11 +192,11 @@
                         <h3>Construction Timeline</h3>
                         <div class="timeline-progress" id="timeline-progress">Day 4 of 14 • 28% Complete</div>
                     </div>
-                    
+
                     <div class="stage-progress-bar">
                         <div class="stage-progress-fill" id="stage-progress-fill" style="width: 28%"></div>
                     </div>
-                    
+
                     <div class="stage-indicators">
                         <div class="stage-indicator completed">
                             Pre-Con
@@ -212,13 +234,14 @@
                         </div>
                         <div class="task-due-badge" id="task-due">Due Today</div>
                     </div>
-                    
+
                     <div class="task-main" id="task-main">Schedule Foundation Inspection</div>
-                    
+
                     <div class="task-description" id="task-description">
-                        Schedule city inspection for foundation work. Ensure site is prepared and all permits are posted. Coordinate with site supervisor John Smith.
+                        Schedule city inspection for foundation work. Ensure site is prepared and all permits are
+                        posted. Coordinate with site supervisor John Smith.
                     </div>
-                    
+
                     <div class="task-actions">
                         <div style="flex: 1;" id="task-subtasks">
                             <!-- Subtasks will be populated here -->
@@ -227,7 +250,7 @@
                             ✅ Complete Task
                         </button>
                     </div>
-                    
+
                     <div class="task-meta">
                         <div class="meta-item">
                             <div class="meta-icon">📅</div>
@@ -264,9 +287,25 @@
                 <div class="attached-clients">
                     <div class="attached-header">
                         <span>📍 Attached Clients (Visit While Here)</span>
+                        <button class="btn btn-sm btn-secondary" id="btn-attach-client"
+                            style="margin-left: auto; font-size: 0.8rem; padding: 4px 8px;">+ Attach</button>
                     </div>
                     <div class="attached-list" id="attached-list">
                         <!-- Attached clients will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Custom Fields Section -->
+                <div class="client-notes" style="margin-top: 20px;">
+                    <div class="notes-header">
+                        <h3>🔧 Custom Fields</h3>
+                        <button class="btn btn-secondary" id="btn-add-field">
+                            + Add Field
+                        </button>
+                    </div>
+                    <div id="custom-fields-container"
+                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                        <!-- Custom fields will be rendered here -->
                     </div>
                 </div>
 
@@ -278,7 +317,8 @@
                             💾 Save Notes
                         </button>
                     </div>
-                    <textarea class="notes-textarea" id="client-notes" placeholder="Add notes about this client...">Client prefers email communication. Site supervisor: John Smith (555-0123). Budget approved, awaiting permit. Foundation pour scheduled for Jan 22.</textarea>
+                    <textarea class="notes-textarea" id="client-notes"
+                        placeholder="Add notes about this client...">Client prefers email communication. Site supervisor: John Smith (555-0123). Budget approved, awaiting permit. Foundation pour scheduled for Jan 22.</textarea>
                 </div>
 
                 <!-- Complete Task Panel -->
@@ -287,7 +327,8 @@
                         ✅ Task Complete? Set New Urgency (0-100):
                     </div>
                     <div class="urgency-selector">
-                        <input type="range" class="urgency-slider-complete" id="urgency-selector" min="0" max="100" value="50">
+                        <input type="range" class="urgency-slider-complete" id="urgency-selector" min="0" max="100"
+                            value="50">
                         <div class="urgency-value-display" id="urgency-selected-value">50</div>
                         <div class="urgency-labels">
                             <span>Low (0-20)</span>
@@ -321,14 +362,15 @@
                             🛡️ Warranty System
                         </div>
                         <div class="transfer-option" data-system="maintenance">
-            🛠️ Maintenance System
+                            🛠️ Maintenance System
                         </div>
                     </div>
                 </div>
 
                 <!-- Sync Info Banner -->
                 <div class="demo-banner">
-                    <strong>SYNC ACTIVE:</strong> Connected to Google Sheets. All changes are automatically saved. 0-100 urgency scale, task management, cross-app linking, formula-driven timelines.
+                    <strong>SYNC ACTIVE:</strong> Connected to Google Sheets. All changes are automatically saved. 0-100
+                    urgency scale, task management, cross-app linking, formula-driven timelines.
                 </div>
             </main>
         </div>
@@ -341,13 +383,14 @@
             <div class="modal-header">
                 <h3>➕ Add New Task</h3>
             </div>
-            
+
             <form id="form-add-task">
                 <div class="form-group">
                     <label class="form-label">Task Name</label>
-                    <input type="text" class="form-input" id="task-name" placeholder="e.g., Schedule Inspection" required>
+                    <input type="text" class="form-input" id="task-name" placeholder="e.g., Schedule Inspection"
+                        required>
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Category</label>
@@ -373,29 +416,33 @@
                         </select>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label class="form-label">Description</label>
-                    <textarea class="form-textarea" id="task-description-input" placeholder="Describe the task..."></textarea>
+                    <textarea class="form-textarea" id="task-description-input"
+                        placeholder="Describe the task..."></textarea>
                 </div>
-                
+
                 <div class="form-group">
                     <label class="form-label">Subtasks (comma separated)</label>
-                    <input type="text" class="form-input" id="task-subtasks-input" placeholder="e.g., Call inspector, Email schedule, Confirm date">
+                    <input type="text" class="form-input" id="task-subtasks-input"
+                        placeholder="e.g., Call inspector, Email schedule, Confirm date">
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Default Urgency (0-100)</label>
-                        <input type="range" class="urgency-slider" min="0" max="100" value="50" id="task-default-urgency">
-                        <div style="text-align: center; font-weight: 600; margin-top: 5px;" id="task-urgency-display">50</div>
+                        <input type="range" class="urgency-slider" min="0" max="100" value="50"
+                            id="task-default-urgency">
+                        <div style="text-align: center; font-weight: 600; margin-top: 5px;" id="task-urgency-display">50
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Time Estimate (minutes)</label>
                         <input type="number" class="form-input" id="task-time-estimate" min="5" max="480" value="30">
                     </div>
                 </div>
-                
+
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" id="btn-cancel-task">
                         Cancel
@@ -414,37 +461,41 @@
             <div class="modal-header">
                 <h3>🧮 Construction Timeline Formula</h3>
             </div>
-            
+
             <div class="form-group">
                 <label class="form-label">Current Stage Formula</label>
-                <div style="background: var(--gray-100); padding: 15px; border-radius: var(--radius); font-family: monospace; margin-bottom: 15px;">
-                    =IF(TODAY() >= StageEndDate, "Next Stage", IF(TODAY() >= StageStartDate, "Current Stage", "Previous Stage"))
+                <div
+                    style="background: var(--gray-100); padding: 15px; border-radius: var(--radius); font-family: monospace; margin-bottom: 15px;">
+                    =IF(TODAY() >= StageEndDate, "Next Stage", IF(TODAY() >= StageStartDate, "Current Stage", "Previous
+                    Stage"))
                 </div>
                 <p style="font-size: 0.9rem; color: var(--gray-600);">
                     This formula auto-calculates the current construction stage based on dates in your spreadsheet.
                 </p>
             </div>
-            
+
             <div class="form-group">
                 <label class="form-label">Stage Progress Formula</label>
-                <div style="background: var(--gray-100); padding: 15px; border-radius: var(--radius); font-family: monospace; margin-bottom: 15px;">
+                <div
+                    style="background: var(--gray-100); padding: 15px; border-radius: var(--radius); font-family: monospace; margin-bottom: 15px;">
                     =MIN(MAX((TODAY() - StageStartDate) / (StageEndDate - StageStartDate), 0), 1)
                 </div>
                 <p style="font-size: 0.9rem; color: var(--gray-600);">
                     Calculates percentage complete for current stage (0-100%).
                 </p>
             </div>
-            
+
             <div class="form-group">
                 <label class="form-label">Days Remaining Formula</label>
-                <div style="background: var(--gray-100); padding: 15px; border-radius: var(--radius); font-family: monospace; margin-bottom: 15px;">
+                <div
+                    style="background: var(--gray-100); padding: 15px; border-radius: var(--radius); font-family: monospace; margin-bottom: 15px;">
                     =MAX(StageEndDate - TODAY(), 0)
                 </div>
                 <p style="font-size: 0.9rem; color: var(--gray-600);">
                     Shows days remaining in current stage.
                 </p>
             </div>
-            
+
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" id="btn-close-formula">
                     Close
@@ -458,4 +509,5 @@
 
     <script src="js/app.js"></script>
 </body>
+
 </html>

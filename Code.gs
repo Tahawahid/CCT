@@ -185,11 +185,11 @@ function prepareRowData(client, headers) {
 
 function getHeaders() {
   return [
-    'ID', 'Name', 'Urgency', 'Stage', 'StageStart', 'StageEnd', 
+    'ID', 'Name', 'Phone', 'Urgency', 'Stage', 'PipelineStage', 'StageStart', 'StageEnd', 
     'Location', 'Status', 'ReadyToTransfer', 'TransferredTo', 'CurrentTaskName', 
     'CurrentTaskSubtasks', 'CurrentTaskDescription', 'CurrentTaskDue',
     'CurrentTaskCreated', 'CurrentTaskTime', 'CurrentTaskContact',
-    'CurrentTaskCategory', 'AttachedClients', 'Notes', 'LastUpdated'
+    'CurrentTaskCategory', 'AttachedClients', 'CustomFields', 'Notes', 'LastUpdated'
   ];
 }
 
